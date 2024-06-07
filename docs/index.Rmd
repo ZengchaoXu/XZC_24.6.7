@@ -1,159 +1,166 @@
 ---
-title: "如何在GitHub上建立网页"
-author: "Tan, Qiaoguo"
-date: "2023-06-16"
-output:
-  html_document:
-    css: "style.css"
-
+title: "homework_2"
+author: "Zengchao Xu"
+date: "2024-03-20"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+##数据说明
+读入West, G等人文章的附件后按照Study Number筛选数据，按照Table 1赋值m0和M。根据公式（5）构建一个非线性函数计算不同α下的系数a，并对应Table 1中的值验证一下。根据已知的m0，M，T和a计算T对应的mass值并做不同物种的生长曲线图（a,b,c）,应该写个循环pi，三张图数量较少复制可以回避写循环。直接在geom_function中构建函数曲线可以回避geom_line需要预处理数据问题。普适性生长曲线可以根据figure 2中图注的公式用mass，M，m0，T计算时间和ratio后作图，曲线参考图a,b,c。在处理图4时，没有找到两组变量同时宽表转长表的方法，最后select，重命名后rbind解决。最后使用plot_grid函数拼图完成制图。
+## raw date整理tidydata形式
+```{r}
+library(tidyverse)
+library(readxl)
+library(cowplot)
 
-选修“环境数据分析与可视化”的同学们，你们好，这个网页是为你而建的。这是这学期我们这门课的最后一讲，你将学习如何建一个完全由你控制的，专业的，学术的网页，并把这个网页托管在GitHub网站，向全世界开放，展示你的想法、学术笔记、科研成果等等。
+df <- read_xlsx("D:/XMU/课程/数据可视化/作业/作业2/41586_2001_BF35098076_MOESM2_ESM.xlsx",sheet = 1) %>% 
+  rename(mass = `Mass (g)`, taxa = `Study Number`) %>% 
+  filter(taxa %in% c(1,3,12)) %>% 
+  mutate(species = case_when(taxa == 1 ~ "Guppy",
+                          taxa == 3 ~ "Hen",
+                          T ~ "Cow"),
+         m0 = case_when(taxa == 1 ~ 0.008, #g
+                          taxa == 3 ~ 43,
+                          T ~ 33300),
+         M = case_when(taxa == 1 ~ 0.15, #g
+                          taxa == 3 ~ 2100,
+                          T ~ 442000)) 
+write.csv(df,file = "D:/XMU/课程/数据可视化/作业/作业2/tidydata.csv",row.names = F)
 
-## 1. 注册GitHub账号  
-打开以下链接，用你的常用永久邮箱（例如QQ邮箱、foxmail等）注册GitHub账号，注意不要用大学邮箱、学生邮箱等非永久的邮箱注册，以免哪天就不能用了。
-github网站链接：https://github.com/
-
-
-## 2. 在GitHub中创建仓库
-
-打开浏览器，转到你的GitHub页面。创建一个新的仓库（Create a new repository）。  
-
-* 输入“Repository name”，在以下的示例中，我将创建名为“20230616-example-page”的仓库。  
-
-<br/> 
-
-```{r img-with-knitr, echo=FALSE, fig.align='center', out.width='100%', fig.cap=' '}
-knitr::include_graphics("pics/pic1.png")
+```
+##预览
+```{r}
+glimpse(df)
+ggplot(df,aes(Time,mass))+
+  geom_point()+
+  facet_wrap(~taxa,scales = "free")
 ```
 
-<br/>   
+##获得α=3/4时的系数a1和α=2/3时的系数a2
+```{r}
+#a1
+a1_df <- data.frame(species = character(), a1 = numeric())
+
+for (i in df$species) {
+  dfi <- filter(df, species == i)
   
-
-
-* 勾选“Add a README file”（非必需）。  
-
-* 拉到页面下方，点击绿色“Create  repository”按钮，保存。  
-
-
-
-<br/> 
-
-```{r img-with-knitr2, echo=FALSE, fig.align='center', out.width='100%', fig.cap=' '}
-knitr::include_graphics("pics/pic1a.png")
-```
-
-<br/> 
-
-接下来，我们会把html文件保存到这个仓库中。  
-
-
-## 3. 下载GitHub桌面版
-
-从以下链接下载并安装GitHub桌面版：
-https://desktop.github.com/
-
+  fit_i <- nls(mass ~ M * (1 - (1 - (m0 / M)^0.25) * exp(-a * Time / (4 * M^0.25)))^4,
+               data = dfi,
+               start = list(a = 0.3))
   
-## 4. 打开GitHub桌面应用程序
-* 打开GitHub应用程序，登录账号（可能因为网络连接问题，反应较慢），你将看到“Let's get started”页面。   
-* 点选页面右侧"20230616-example-page”的仓库,然后点击下方的蓝色“Clone...”按钮。  
-* 你会看到窗口弹出，提示你设定计算机上的文件夹地址，用以保存你克隆的仓库。目前建议选择默认的地址，并记住这个地址。
-* 进入以上文件夹，新建名为docs的文件夹。我们接下来会把html文件保存到这个文件夹中。  
-
-<br/> 
-
-```{r img-with-knitr3, echo=FALSE, fig.align='center', out.width='33%', fig.cap=' '}
-knitr::include_graphics("pics/pic2.png")
-```
-
-<br/> 
-
-
-
-## 5. 设置 GitHub 页面功能
-
-* 返回浏览器，打开的GitHub仓库，例如 https://github.com/tan-qiao-guo/20230616-example-page  
-* 点击“Settings”选项卡。  
-
-<br/> 
-
-```{r img-with-knitr4, echo=FALSE, fig.align='center', out.width='100%', fig.cap=' '}
-knitr::include_graphics("pics/pic3.png")
-```
-
-<br/> 
-
+  a1_i <- summary(fit_i)$coefficients[1]
   
+  a1_df <- rbind(a1_df, data.frame(species = i, a1 = a1_i))
+}
+
+#a2
+a2_df <- data.frame(species = character(), a2 = numeric())
+
+for (i in df$species) {
+  dfi <- filter(df, species == i)
   
-* 点击左侧“Pages”选项卡，在此设置GitHub页面功能。   
+  fit_i <- nls(mass ~ M * (1 - (1 - (m0 / M)^(1/3)) * exp(-a * Time / (3 * M^(1/3))))^3,
+               data = dfi,
+               start = list(a = 0.6))
+  
+  a2_i <- summary(fit_i)$coefficients[1]
+  
+  a2_df <- rbind(a2_df, data.frame(species = i, a2 = a2_i))
+}
 
-<br/> 
+```
+##作a,b,c图,复制三遍比较快；d图单独绘制
+```{r}
+df2 <- df %>% 
+  left_join(unique(a1_df),by = "species") %>% 
+  left_join(unique(a2_df),by = "species") %>% 
+  mutate(mass1 = M * (1 - (1 - (m0 / M)^0.25) * exp(-a1 * Time / (4 * M^0.25)))^4,
+         mass2 = M * (1 - (1 - (m0 / M)^(1/3)) * exp(-a2 * Time / (3 * M^(1/3))))^3) %>% 
+  pivot_longer(cols = c(mass,mass1,mass2),
+               names_to = "m", values_to = "value")
 
-```{r img-with-knitr5, echo=FALSE, fig.align='center', out.width='100%', fig.cap=' '}
-knitr::include_graphics("pics/pic4.png")
+
+##图a，Cow
+data1 <- filter(df2,species == "Cow")
+p1 <- ggplot(data1, aes(x = Time, y = value)) +
+  theme_bw(16)+
+  geom_point(aes(color = m),size = 2) +
+  labs(x = "Time", y = "Mass (g)",
+       title = "Cow") +
+  scale_color_manual(values = c("#36b64b","#0065b2","#d6231e"))+
+  geom_function(fun =function(x) 
+    unique(data1$M)*(1-(1-(unique(data1$m0)/unique(data1$M))^0.25)*exp(-unique(data1$a1)*x/(4*unique(data1$M)^0.25)))^4,
+    color ="#0065b2",linetype ="dashed")+
+  geom_function(fun =function(x) 
+    unique(data1$M)*(1-(1-(unique(data1$m0)/unique(data1$M))^(1/3))*exp(-unique(data1$a2)*x/(3*unique(data1$M)^(1/3))))^3,
+    color ="#d6231e",linetype ="dashed")+
+  theme(legend.position = "none")
+p1
+
+##图b，Guppy
+data2 <- filter(df2,species == "Guppy")
+p2 <- ggplot(data2, aes(x = Time, y = value)) +
+  theme_bw(16)+
+  geom_point(aes(color = m),size = 2) +
+  labs(x = "Time", y = "Mass (g)",
+       title = "Guppy") +
+  scale_color_manual(values = c("#36b64b","#0065b2","#d6231e"))+
+  geom_function(fun =function(x) 
+    unique(data2$M)*(1-(1-(unique(data2$m0)/unique(data2$M))^0.25)*exp(-unique(data2$a1)*x/(4*unique(data2$M)^0.25)))^4,
+    color ="#0065b2",linetype ="dashed")+
+  geom_function(fun =function(x) 
+    unique(data2$M)*(1-(1-(unique(data2$m0)/unique(data2$M))^(1/3))*exp(-unique(data2$a2)*x/(3*unique(data2$M)^(1/3))))^3,
+    color ="#d6231e",linetype ="dashed")+
+  theme(legend.position = "none")
+p2
+
+##图c，Hen
+data3 <- filter(df2,species == "Hen")
+p3 <- ggplot(data3, aes(x = Time, y = value)) +
+  theme_bw(16)+
+  geom_point(aes(color = m),size = 2) +
+  labs(x = "Time", y = "Mass (g)",
+       title = "Hen") +
+  scale_color_manual(values = c("#36b64b","#0065b2","#d6231e"))+
+  geom_function(fun =function(x) 
+    unique(data3$M)*(1-(1-(unique(data3$m0)/unique(data3$M))^0.25)*exp(-unique(data3$a1)*x/(4*unique(data3$M)^0.25)))^4,
+    color ="#0065b2",linetype ="dashed")+
+  geom_function(fun =function(x) 
+    unique(data3$M)*(1-(1-(unique(data3$m0)/unique(data3$M))^(1/3))*exp(-unique(data3$a2)*x/(3*unique(data3$M)^(1/3))))^3,
+    color ="#d6231e",linetype ="dashed")+
+  theme(legend.position = "none")
+p3
+
+#图d
+df3 <- df %>% 
+  left_join(unique(a1_df),by = "species") %>% 
+  left_join(unique(a2_df),by = "species") %>% 
+  mutate(mass1 = M * (1 - (1 - (m0 / M)^0.25) * exp(-a1 * Time / (4 * M^0.25)))^4,
+         mass2 = M * (1 - (1 - (m0 / M)^(1/3)) * exp(-a2 * Time / (3 * M^(1/3))))^3) %>% 
+  mutate(r1 = (mass1/M)^(1/4), r2 = (mass2/M)^(1/3),
+         dt1 = (a1*Time/(4*M^(1/4)))-log(1-(m0/M)^(1/4)),
+         dt2 = (a2*Time/(3*M^(1/3)))-log(1-(m0/M)^(1/3)))
+A <- select(df3,11,13,4) %>% 
+  rename(r= r1, dt = dt1)
+B <- select(df3,12,14,4)%>% 
+  rename(r= r2, dt = dt2) %>% 
+  rbind(A)
+
+p4 <- ggplot(B,aes(dt,r,color = species))+
+  theme_bw(16)+
+  geom_point()+
+  labs(x = "Dimensionless mass ratio", y = "Dimensionless time",
+       title = "Scaling collapse") +
+  scale_color_manual(values = c("#36b64b","#d6231e","#0065b2"))+
+  geom_function(fun =function(x) 
+    1-exp(-x),
+    color ="black",linetype ="dashed")+
+  theme(legend.position = "none")
+
+plot_grid(p1,p2,p3,p4,ncol=2,labels = c("a","b","c","d"))
+
 ```
 
-<br/> 
-  
-  
-  
-* 如上图所示，将“none”改为“main”，填入文件地址“docs”，单击“Save”，保存设置。  
-
-* GitHub 将生成一个url链接（如上图长条椭圆中所示）。这可能需要好几分钟才会出现，需耐心等待，每隔几分钟刷新一次看看。  
-
-
-## 6. 创建R Markdown html文件
-
-* 在RStudio中新建一个R Markdown文件，编辑内容。  
-
-* 单击“Knit”并选择“Knit to HTML”，保存html文件到上面建立的“docs”文件夹中，并将html 文件命名为“index”，你会在“docs”文件夹中看到“index.html”和“index.Rmd”两个文件。  
-
-<br/> 
-
-```{r img-with-knitr6, echo=FALSE, fig.align='center', out.width='40%', fig.cap=' '}
-knitr::include_graphics("pics/pic5.png")
-```
-
-<br/> 
-
-## 7. 推送文件到仓库中  
-
-* 返回到GitHub应用程序，如下图所示，可以看到所做的更改  
-
-<br/> 
-
-```{r img-with-knitr7, echo=FALSE, fig.align='center', out.width='70%', fig.cap=' '}
-knitr::include_graphics("pics/pic6.png")
-```
-
-<br/> 
-
-* 输入简单描述，即可激活蓝色“Commit to main”按钮（如上图）  
-
-<br/> 
-
-```{r img-with-knitr8, echo=FALSE, fig.align='center', out.width='70%', fig.cap=' '}
-knitr::include_graphics("pics/pic7.png")
-```
-
-<br/> 
-
-
-
-* 点击上方“Push origin”，以完成推送。由于网络问题，时常会出现反应慢、推送失败等情况，多试几次，终会成功。
-
-
-## 8. 查看网页
-
-在浏览器中打开第5步中提到的url链接，刷新，稍等片刻即可看到更新后的网页。
-
-
-
-
-## 参考资料：
-
-https://mbounthavong.com/blog/2022/7/30/hosting-a-r-markdown-html-file-on-a-github-page
